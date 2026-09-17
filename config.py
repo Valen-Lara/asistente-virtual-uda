@@ -30,6 +30,10 @@ PISTAS_VOZ_ES = (
 
 # --- Reconocimiento de voz ---------------------------------------------------
 IDIOMA_RECONOCIMIENTO = "es-AR"
+# Respiro entre que el asistente termina de preguntar algo y abre el micrófono,
+# para no empezar a grabar cuando el alumno todavía está pensando qué decir.
+# Solo se aplica por micrófono: escribiendo no hace falta esperar.
+PAUSA_ANTES_DE_RESPONDER = 2  # segundos
 PAUSA_ANTES_DE_CORTAR = 0.8   # segundos de silencio para dar por terminada la frase
 ESPERA_MAXIMA = 8             # segundos esperando a que empieces a hablar
 DURACION_MAXIMA_FRASE = 10    # segundos máximos de grabación por comando
