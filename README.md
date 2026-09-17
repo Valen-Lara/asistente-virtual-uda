@@ -8,6 +8,7 @@ Asistente por voz en Python que corre en consola. La idea es gestionar una sesi�
 |---|---|
 | `ayuda` | Lista todos los comandos disponibles |
 | `busca en Wikipedia <tema>` | Lee en voz alta un resumen del artículo |
+| `busca en internet` (a secas) | Repregunta qué buscar y recién ahí busca |
 | `modo estudio` | Abre YouTube y reproduce una playlist Lo-Fi predefinida |
 | `abrir el campus` / `abrir Drive` / `abrir correo` | Accesos directos a las plataformas de la facultad |
 | `abrir YouTube` / `abrir navegador` | Abre el sitio en el navegador por defecto |
@@ -25,6 +26,7 @@ asistente-virtual-uda/
 ├── main.py           # punto de entrada: saludo y bucle principal
 ├── comandos.py       # una función por funcionalidad + registro de comandos
 ├── voz.py            # entrada y salida de voz (pyttsx3 / speech_recognition)
+├── dialogo.py        # repreguntas ("¿qué querés buscar?")
 ├── alumno.py         # pregunta y guarda el nombre del alumno
 ├── config.py         # nombres, URLs, tickers y parámetros ajustables
 └── requirements.txt
@@ -88,6 +90,24 @@ Lo primero que hace al arrancar es preguntar el nombre del alumno, y después lo
 [Aconcagua] Buenas tardes Ana López, soy Aconcagua. ¿En qué te puedo ayudar?
 ```
 
+Los comandos de búsqueda se pueden usar de las dos maneras. Todo junto:
+
+```
+[vos] > buscar en internet partidos de Boca Juniors
+[Aconcagua] Buscando partidos de Boca Juniors en internet.
+```
+
+O el comando primero y el tema después, que es más cómodo por voz:
+
+```
+[vos] > buscar en internet
+[Aconcagua] ¿Qué querés buscar en internet?
+[vos] > partidos de Boca Juniors
+[Aconcagua] Buscando partidos de Boca Juniors en internet.
+```
+
+Sirve igual para `busca en Wikipedia` y para `reproducir`. Si no querés buscar nada, decile "nada" o "dejalo" y vuelve a esperar comandos.
+
 Si no encuentra micrófono, pasa automáticamente a modo texto en lugar de romperse.
 
 ## Decisiones técnicas
@@ -97,6 +117,8 @@ Si no encuentra micrófono, pasa automáticamente a modo texto en lugar de rompe
 - **Los comandos se comparan sin acentos y en minúsculas**, para que "qué día es hoy" y "que dia es hoy" caigan en la misma función.
 - **Las librerías pesadas se importan dentro de cada función.** `pywhatkit` verifica la conexión a internet al importarse y demora el arranque; así el asistente abre al instante.
 - **El nombre del alumno se pregunta, no se hardcodea.** Se pide una sola vez al arrancar (`alumno.py`), se le sacan las muletillas ("me llamo", "soy") y queda disponible para cualquier comando con `nombre_alumno()`. Si el micrófono no lo entiende, lo vuelve a pedir por teclado.
+- **Los comandos primero se reconocen y después piden el dato.** Si decís solo "buscar en internet", `dialogo.preguntar()` repregunta y escucha la respuesta por el mismo canal que el resto (micrófono o teclado). Antes el tema tenía que ir sí o sí en la misma frase.
+- **El disparador se recorta comparando sin acentos ni mayúsculas.** El reconocedor devuelve "Buscar en internet" con mayúscula, así que el recorte literal no coincidía y terminaba buscando en Google la frase "Buscar en internet" en lugar del tema. `sacar_disparador()` ubica el disparador sobre el texto normalizado pero corta sobre el original, para no perder los acentos de lo que se busca.
 - **Wikipedia necesita un User-Agent propio.** Wikimedia responde `403` a las consultas que llegan con el User-Agent genérico de la librería, así que el asistente se identifica con el suyo (`USER_AGENT_WIKIPEDIA` en `config.py`).
 - **Todo comando falla con un mensaje hablado**, nunca con un traceback: si falta una librería o no hay internet, el asistente lo avisa y sigue escuchando.
 

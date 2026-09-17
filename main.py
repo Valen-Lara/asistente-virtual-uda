@@ -14,6 +14,7 @@ import datetime
 from alumno import nombre_alumno, pedir_nombre
 from comandos import procesar_pedido
 from config import NOMBRE_ASISTENTE
+from dialogo import registrar_escucha
 from voz import escuchar_microfono, escuchar_teclado, hablar, hay_microfono
 
 
@@ -59,8 +60,10 @@ def main():
     args = parser.parse_args()
 
     escuchar = elegir_modo_escucha(args.texto)
+    # Los comandos que repreguntan ("¿qué querés buscar?") escuchan por acá.
+    registrar_escucha(escuchar)
 
-    pedir_nombre(escuchar)
+    pedir_nombre()
     saludo_inicial()
     print("(Decí 'ayuda' para ver los comandos, o 'adiós' para salir.)")
 

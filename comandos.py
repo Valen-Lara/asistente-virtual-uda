@@ -25,6 +25,7 @@ from config import (
     SITIOS,
     USER_AGENT_WIKIPEDIA,
 )
+from dialogo import preguntar
 from voz import hablar, normalizar
 
 DIAS = {
@@ -111,15 +112,13 @@ def modo_estudio(pedido, crudo):
 
 
 def reproducir(pedido, crudo):
-    # Ojo con el orden: primero la variante más larga, si no "reproducir"
-    # quedaría recortado en "r" al sacarle "reproduci".
-    tema = crudo.lower()
-    for disparador in ("reproducir", "reproducí", "reproduci"):
-        tema = tema.replace(disparador, "")
-    tema = tema.strip(" ?¿.")
+    tema = sacar_disparador(crudo, DISPARADORES_REPRODUCIR)
 
     if not tema:
-        hablar("¿Qué querés que reproduzca?")
+        tema = preguntar("¿Qué querés que reproduzca?")
+
+    if not tema:
+        hablar("Listo, no reproduzco nada.")
         return True
 
     hablar(f"Reproduciendo {tema}.")
@@ -135,14 +134,70 @@ def reproducir(pedido, crudo):
 
 
 # --- 4. Búsquedas ------------------------------------------------------------
+# Las formas de pedir cada búsqueda, en minúscula y sin acentos (así las
+# devuelve normalizar()). Van de la más larga a la más corta: si primero
+# probara "busca", "busca en internet" quedaría cortado a medias.
+DISPARADORES_WIKIPEDIA = (
+    "busca en wikipedia",
+    "buscar en wikipedia",
+    "busca por wikipedia",
+    "buscar por wikipedia",
+    "busca wikipedia",
+    "buscar wikipedia",
+    "wikipedia",
+)
+
+DISPARADORES_INTERNET = (
+    "busca informacion sobre",
+    "buscar informacion sobre",
+    "busca en internet",
+    "buscar en internet",
+    "busca por internet",
+    "buscar por internet",
+    "busca en google",
+    "buscar en google",
+    "busqueda de",
+    "busqueda",
+    "buscame",
+    "busca",
+    "buscar",
+)
+
+DISPARADORES_REPRODUCIR = (
+    "quiero escuchar",
+    "reproducir",
+    "reproduce",
+    "reproduci",
+)
+
+
+def sacar_disparador(crudo, disparadores):
+    """Devuelve lo que viene después del "busca en internet" de turno.
+
+    Busca sobre el texto normalizado (el reconocedor devuelve "Buscar en
+    internet", con mayúscula, y así igual matchea) pero recorta sobre el texto
+    original, para no perder acentos ni mayúsculas en el tema buscado.
+    """
+    texto = crudo.strip()
+    plano = normalizar(texto)  # misma cantidad de caracteres: los índices sirven
+
+    for disparador in disparadores:
+        posicion = plano.find(disparador)
+        if posicion != -1:
+            texto = texto[posicion + len(disparador):]
+            break
+
+    return texto.strip(" ¿?¡!.,")
+
+
 def buscar_wikipedia(pedido, crudo):
-    consulta = crudo
-    for disparador in ("busca en wikipedia", "buscá en wikipedia", "busca en Wikipedia"):
-        consulta = consulta.replace(disparador, "")
-    consulta = consulta.strip(" ?¿.")
+    consulta = sacar_disparador(crudo, DISPARADORES_WIKIPEDIA)
 
     if not consulta:
-        hablar("¿Qué querés que busque en Wikipedia?")
+        consulta = preguntar("¿Qué querés que busque en Wikipedia?")
+
+    if not consulta:
+        hablar("Listo, no busco nada.")
         return True
 
     hablar(f"Buscando {consulta} en Wikipedia.")
@@ -166,16 +221,16 @@ def buscar_wikipedia(pedido, crudo):
 
 
 def buscar_internet(pedido, crudo):
-    consulta = crudo
-    for disparador in ("busca en internet", "buscá en internet", "buscar en internet"):
-        consulta = consulta.replace(disparador, "")
-    consulta = consulta.strip(" ?¿.")
+    consulta = sacar_disparador(crudo, DISPARADORES_INTERNET)
 
     if not consulta:
-        hablar("¿Qué querés que busque?")
+        consulta = preguntar("¿Qué querés buscar en internet?")
+
+    if not consulta:
+        hablar("Listo, no busco nada.")
         return True
 
-    hablar("Buscando información.")
+    hablar(f"Buscando {consulta} en internet.")
     try:
         import pywhatkit
 
@@ -240,8 +295,12 @@ def despedirse(pedido, crudo):
 COMANDOS = [
     (("ayuda", "que podes hacer", "que sabes hacer"), mostrar_ayuda),
     (("modo estudio", "modo concentracion"), modo_estudio),
-    (("busca en wikipedia", "buscar en wikipedia"), buscar_wikipedia),
-    (("busca en internet", "buscar en internet"), buscar_internet),
+    (("busca en wikipedia", "buscar en wikipedia", "busca wikipedia",
+      "buscar wikipedia", "busca por wikipedia", "buscar por wikipedia"),
+     buscar_wikipedia),
+    (("busca en internet", "buscar en internet", "busca por internet",
+      "buscar por internet", "busca en google", "buscar en google"),
+     buscar_internet),
     (("precio de la accion", "cotizacion", "cuanto vale la accion"), precio_accion),
     (("abrir el campus", "abrir campus", "campus"), abrir_campus),
     (("abrir drive", "abrir el drive", "drive"), abrir_drive),
@@ -252,6 +311,10 @@ COMANDOS = [
     (("que hora es", "que hora"), decir_hora),
     (("reproducir", "reproduci"), reproducir),
     (("chiste", "necesito un descanso", "pausa activa"), contar_chiste),
+    # Anteúltimo a propósito: si dijo "buscar" sin aclarar dónde, damos por
+    # sentado que es internet. Va después de "abrir campus" y compañía para
+    # que "buscá el campus" siga abriendo el campus.
+    (("buscar", "busca", "busqueda", "buscame"), buscar_internet),
     (("adios", "chau", "hasta luego", "salir", "terminar"), despedirse),
 ]
 
