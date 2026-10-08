@@ -114,7 +114,7 @@ O el comando primero y el tema después, que es más cómodo por voz:
 
 Sirve igual para `busca en Wikipedia` y para `reproducir`. Si no querés buscar nada, decile "nada" o "dejalo" y vuelve a esperar comandos.
 
-Entre la repregunta y el micrófono deja 2 segundos (`PAUSA_ANTES_DE_RESPONDER` en `config.py`), para no empezar a grabar mientras todavía estás pensando qué decir.
+Entre la repregunta y el micrófono deja 5 segundos (`PAUSA_ANTES_DE_RESPONDER` en `config.py`), para no empezar a grabar mientras todavía estás pensando qué decir.
 
 Si no encuentra micrófono, pasa automáticamente a modo texto en lugar de romperse.
 
