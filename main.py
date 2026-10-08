@@ -6,6 +6,7 @@ toda la lógica de cada funcionalidad vive en comandos.py.
 Uso:
     python main.py            -> por micrófono
     python main.py --texto    -> escribiendo los comandos (para probar)
+    python main.py --voz tomas -> elegir con qué voz habla el asistente
 """
 
 import argparse
@@ -13,9 +14,9 @@ import datetime
 
 from alumno import nombre_alumno, pedir_nombre
 from comandos import procesar_pedido
-from config import NOMBRE_ASISTENTE
+from config import NOMBRE_ASISTENTE, VOCES, VOZ_POR_DEFECTO
 from dialogo import registrar_escucha
-from voz import escuchar_microfono, escuchar_teclado, hablar, hay_microfono
+from voz import cambiar_voz, escuchar_microfono, escuchar_teclado, hablar, hay_microfono
 
 
 def saludo_inicial():
@@ -57,7 +58,14 @@ def main():
         action="store_true",
         help="Ingresar los comandos por teclado en lugar de usar el micrófono.",
     )
+    parser.add_argument(
+        "--voz",
+        choices=sorted(VOCES),
+        default=VOZ_POR_DEFECTO,
+        help="Voz del asistente (también se cambia diciendo 'cambiar voz').",
+    )
     args = parser.parse_args()
+    cambiar_voz(args.voz)
 
     escuchar = elegir_modo_escucha(args.texto)
     # Los comandos que repreguntan ("¿qué querés buscar?") escuchan por acá.

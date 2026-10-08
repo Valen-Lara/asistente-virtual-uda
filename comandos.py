@@ -24,9 +24,10 @@ from config import (
     PLAYLIST_ESTUDIO,
     SITIOS,
     USER_AGENT_WIKIPEDIA,
+    VOCES,
 )
 from dialogo import preguntar
-from voz import hablar, normalizar
+from voz import cambiar_voz, hablar, normalizar, voz_actual
 
 DIAS = {
     0: "lunes",
@@ -277,7 +278,50 @@ def precio_accion(pedido, crudo):
     return True
 
 
-# --- 7. Ayuda y salida -------------------------------------------------------
+# --- 7. Voz del asistente -----------------------------------------------------
+# "Voz masculina" / "voz femenina" eligen la argentina de ese tipo.
+VOZ_POR_GENERO = {"masculin": "tomas", "hombre": "tomas",
+                  "femenin": "elena", "mujer": "elena"}
+
+
+def _buscar_voz(texto):
+    """Devuelve la clave de la voz mencionada en el texto, o ''."""
+    texto = normalizar(texto)
+    for clave in VOCES:
+        if clave in texto:
+            return clave
+    for pista, clave in VOZ_POR_GENERO.items():
+        if pista in texto:
+            return clave
+    return ""
+
+
+def elegir_voz(pedido, crudo):
+    clave = _buscar_voz(pedido)
+
+    if not clave:
+        opciones = ", ".join(descripcion for _, descripcion in VOCES.values())
+        respuesta = preguntar(f"¿Qué voz querés? Tengo a {opciones}.")
+        if not respuesta:
+            hablar("Listo, sigo con la misma voz.")
+            return True
+        clave = _buscar_voz(respuesta)
+
+    if not clave:
+        hablar("No tengo esa voz. Decí 'cambiar voz' para escuchar las opciones.")
+        return True
+
+    if clave == voz_actual():
+        hablar("Ya estoy usando esa voz.")
+        return True
+
+    cambiar_voz(clave)
+    nombre = VOCES[clave][1].split(",")[0]
+    hablar(f"Listo, ahora te habla {nombre}. ¿Qué te parece?")
+    return True
+
+
+# --- 8. Ayuda y salida -------------------------------------------------------
 def mostrar_ayuda(pedido, crudo):
     hablar("Estos son los comandos que entiendo.")
     for claves, _ in COMANDOS:
@@ -295,6 +339,8 @@ def despedirse(pedido, crudo):
 COMANDOS = [
     (("ayuda", "que podes hacer", "que sabes hacer"), mostrar_ayuda),
     (("modo estudio", "modo concentracion"), modo_estudio),
+    (("cambiar voz", "cambiar la voz", "cambia la voz", "cambia voz",
+      "otra voz", "voz de", "voz masculina", "voz femenina"), elegir_voz),
     (("busca en wikipedia", "buscar en wikipedia", "busca wikipedia",
       "buscar wikipedia", "busca por wikipedia", "buscar por wikipedia"),
      buscar_wikipedia),

@@ -11,6 +11,21 @@ NOMBRE_ALUMNO_POR_DEFECTO = "alumno"
 NOMBRE_ASISTENTE = "Aconcagua"
 
 # --- Voz ---------------------------------------------------------------------
+# Voces neuronales de Edge TTS: suenan mucho más naturales que espeak, pero
+# necesitan internet. Si no hay conexión se usa la voz del sistema (pyttsx3).
+# La clave es el nombre con el que el alumno la pide ("cambiar voz" -> "Tomás").
+VOCES = {
+    "elena": ("es-AR-ElenaNeural", "Elena, argentina"),
+    "tomas": ("es-AR-TomasNeural", "Tomás, argentino"),
+    "dalia": ("es-MX-DaliaNeural", "Dalia, mexicana"),
+    "jorge": ("es-MX-JorgeNeural", "Jorge, mexicano"),
+    "elvira": ("es-ES-ElviraNeural", "Elvira, española"),
+    "alvaro": ("es-ES-AlvaroNeural", "Álvaro, español"),
+}
+VOZ_POR_DEFECTO = "elena"
+VELOCIDAD_VOZ_NEURAL = "+0%"  # ej. "+10%" más rápido, "-10%" más lento
+
+# Voz de respaldo (pyttsx3 / espeak), solo si Edge TTS no está disponible.
 VELOCIDAD_VOZ = 175  # palabras por minuto aprox.
 
 # Pistas para encontrar una voz en español entre las instaladas en el sistema.

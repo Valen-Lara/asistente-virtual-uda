@@ -17,6 +17,7 @@ Asistente por voz en Python que corre en consola. La idea es gestionar una sesi�
 | `busca en internet <tema>` | Búsqueda rápida en Google |
 | `necesito un descanso` / `chiste` | Cuenta un chiste corto para la pausa activa |
 | `precio de la acción de <empresa>` | Cotización actual vía Yahoo Finance |
+| `cambiar voz` / `voz de <nombre>` / `voz masculina` | Cambia la voz del asistente (Elena, Tomás, Dalia, Jorge, Elvira o Álvaro) |
 | `adiós` / `salir` | Cierra el asistente |
 
 ## Estructura
@@ -25,7 +26,7 @@ Asistente por voz en Python que corre en consola. La idea es gestionar una sesi�
 asistente-virtual-uda/
 ├── main.py           # punto de entrada: saludo y bucle principal
 ├── comandos.py       # una función por funcionalidad + registro de comandos
-├── voz.py            # entrada y salida de voz (pyttsx3 / speech_recognition)
+├── voz.py            # entrada y salida de voz (edge-tts / pyttsx3 / speech_recognition)
 ├── dialogo.py        # repreguntas ("¿qué querés buscar?")
 ├── alumno.py         # pregunta y guarda el nombre del alumno
 ├── config.py         # nombres, URLs, tickers y parámetros ajustables
@@ -79,7 +80,12 @@ python main.py
 
 # Modo texto: escribís los comandos por teclado (ideal para probar sin micrófono)
 python main.py --texto
+
+# Arrancar con otra voz (elena, tomas, dalia, jorge, elvira, alvaro)
+python main.py --voz tomas
 ```
+
+La voz también se cambia en cualquier momento diciendo "cambiar voz": el asistente lista las opciones y pregunta cuál querés. La voz por defecto se define en `VOZ_POR_DEFECTO` (`config.py`).
 
 Lo primero que hace al arrancar es preguntar el nombre del alumno, y después lo usa en el saludo y en la despedida:
 
@@ -114,7 +120,8 @@ Si no encuentra micrófono, pasa automáticamente a modo texto en lugar de rompe
 
 ## Decisiones técnicas
 
-- **La voz se busca por nombre, no por ID del registro.** El ejemplo original usaba una clave de `HKEY_LOCAL_MACHINE`, que solo existe en Windows. Acá se recorren las voces instaladas y se elige la primera en español, así funciona en cualquier sistema.
+- **La voz es neuronal (Edge TTS), con espeak de respaldo.** `pyttsx3` en Linux usa espeak, que suena muy robótico. Ahora el audio se pide a las voces neuronales de Microsoft y se reproduce con `pygame`, sin archivos temporales. Si no hay internet, avisa una vez y sigue con la voz del sistema hasta cerrar, para no demorar cada respuesta.
+- **La voz de respaldo se busca por nombre, no por ID del registro.** El ejemplo original usaba una clave de `HKEY_LOCAL_MACHINE`, que solo existe en Windows. Acá se recorren las voces instaladas y se elige la primera en español, así funciona en cualquier sistema.
 - **El motor de pyttsx3 se inicializa una sola vez** y se reutiliza, en lugar de crearlo en cada llamada a `hablar()`.
 - **Los comandos se comparan sin acentos y en minúsculas**, para que "qué día es hoy" y "que dia es hoy" caigan en la misma función.
 - **Las librerías pesadas se importan dentro de cada función.** `pywhatkit` verifica la conexión a internet al importarse y demora el arranque; así el asistente abre al instante.
