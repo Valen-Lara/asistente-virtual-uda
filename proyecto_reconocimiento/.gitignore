@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+
+# Datos personales: fotos de empleados y registro de asistencia
+empleados/*
+!empleados/.gitkeep
+asistencia.csv

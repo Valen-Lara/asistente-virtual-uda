@@ -46,6 +46,10 @@ COMANDOS = [
 ]
 ```
 
+## Reconocimiento facial
+
+En [`proyecto_reconocimiento/`](proyecto_reconocimiento/) hay un proyecto aparte: registro de asistencia por reconocimiento facial con interfaz gráfica. Tiene su propio README con la instalación y el uso.
+
 ## Instalación
 
 ```bash
