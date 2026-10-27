@@ -1,28 +1,48 @@
 import argparse
 
 from config import ajustes
+from models.base_datos import BaseDatos
 from models.cargador_imagenes import CargadorImagenesModel
 from models.reconocedor_facial import ReconocedorFacialModel
+from models.clientes import ClientesModel
+from models.biometria_facial import BiometriaFacialModel
+from models.dispositivos import DispositivosModel
+from models.registro_reconocimiento import RegistroReconocimientoModel
 from models.registro_asistencia import RegistroAsistenciaModel
 from views.interfaz_video import InterfazVideoView
 from controllers.app_controller import AplicacionController
+from controllers.terminal_controller import TerminalController
+from controllers.enrolamiento_controller import EnrolamientoController
+from controllers.auditoria_controller import AuditoriaController
+from controllers.dispositivos_controller import DispositivosController
+
+def armar_aplicacion():
+    # Modelos
+    bd = BaseDatos(ajustes.ARCHIVO_BD)
+    reconocedor = ReconocedorFacialModel(ajustes.UMBRAL_SIMILITUD, ajustes.TOLERANCIA)
+    clientes = ClientesModel(bd)
+    biometria = BiometriaFacialModel(bd)
+    dispositivos = DispositivosModel(bd)
+    registro = RegistroReconocimientoModel(bd)
+    asistencia = RegistroAsistenciaModel(ajustes.ARCHIVO_ASISTENCIA)
+
+    # Controladores, con los modelos y la vista inyectados
+    app = AplicacionController(CargadorImagenesModel(), reconocedor, biometria, InterfazVideoView(), ajustes)
+    app.terminal = TerminalController(app, dispositivos, registro, asistencia, ajustes)
+    app.enrolamiento = EnrolamientoController(clientes, biometria, reconocedor)
+    app.auditoria = AuditoriaController(registro, dispositivos, ajustes)
+    app.dispositivos = DispositivosController(dispositivos)
+    return app
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Registro de asistencia por reconocimiento facial.")
+    parser = argparse.ArgumentParser(description="Autenticación de clientes por reconocimiento facial.")
     parser.add_argument('--consola', action='store_true',
-                        help="Toma asistencia en una ventana de OpenCV, sin la interfaz gráfica.")
+                        help="Abre la terminal en una ventana de OpenCV, sin la interfaz gráfica.")
     parser.add_argument('--comparar', nargs=2, metavar=('CONTROL', 'PRUEBA'),
                         help="Compara dos imágenes y muestra si son la misma persona.")
     args = parser.parse_args()
 
-    # Inicializamos modelos y vista
-    cargador = CargadorImagenesModel()
-    reconocedor = ReconocedorFacialModel(ajustes.TOLERANCIA)
-    registro = RegistroAsistenciaModel(ajustes.ARCHIVO_ASISTENCIA)
-    vista = InterfazVideoView()
-
-    # Inyectamos todo al controlador
-    app = AplicacionController(cargador, reconocedor, registro, vista, ajustes)
+    app = armar_aplicacion()
 
     if args.comparar:
         app.comparar_imagenes(*args.comparar)

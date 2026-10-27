@@ -2,7 +2,9 @@ __pycache__/
 *.pyc
 .venv/
 
-# Datos personales: fotos de empleados y registro de asistencia
-empleados/*
-!empleados/.gitkeep
+# Datos personales: base con los vectores faciales de los clientes y registros
+banco.db
 asistencia.csv
+auditoria_*.csv
+# Fotos de la versión anterior (empleados)
+empleados/

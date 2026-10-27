@@ -1,56 +1,27 @@
 import os
 import cv2
 
-# Caracteres que Windows no acepta en un nombre de archivo
-CARACTERES_INVALIDOS = '\\/:*?"<>|'
-
 class AplicacionController:
-    def __init__(self, cargador, reconocedor, registro, vista, ajustes):
+    """Cámara, detección e imágenes de control/prueba. Los casos de uso están en
+    los controladores de terminal, enrolamiento, auditoría y dispositivos."""
+
+    def __init__(self, cargador, reconocedor, biometria, vista, ajustes):
         self.cargador = cargador
         self.reconocedor = reconocedor
-        self.registro = registro
+        self.biometria = biometria
         self.vista = vista
         self.ajustes = ajustes
         self.camara = None
+        # Los asigna main.py
+        self.terminal = None
+        self.enrolamiento = None
+        self.auditoria = None
+        self.dispositivos = None
 
-    # --- Empleados ---------------------------------------------------------
-    def cargar_empleados(self):
-        """Lee y codifica todas las fotos de la carpeta. Devuelve los nombres cargados."""
-        os.makedirs(self.ajustes.CARPETA_EMPLEADOS, exist_ok=True)
-        empleados = self.cargador.cargar_carpeta(
-            self.ajustes.CARPETA_EMPLEADOS, self.ajustes.EXTENSIONES_IMAGEN
-        )
-        self.reconocedor.cargar_empleados(empleados)
-        return list(self.reconocedor.nombres_conocidos)
-
-    def agregar_empleado(self, nombre, imagen_bgr):
-        """Guarda la foto de un empleado nuevo y lo suma al reconocedor.
-
-        La foto tiene que tener un solo rostro. Lanza ValueError con un mensaje
-        para mostrarle al usuario si algo no está bien.
-        """
-        nombre = ''.join(c for c in nombre if c not in CARACTERES_INVALIDOS).strip()
-        if not nombre:
-            raise ValueError("Ingresá un nombre válido.")
-        if nombre in self.reconocedor.nombres_conocidos:
-            raise ValueError(f"Ya hay un empleado llamado {nombre}.")
-
-        imagen_rgb = cv2.cvtColor(imagen_bgr, cv2.COLOR_BGR2RGB)
-        ubicaciones = self.reconocedor.localizar_rostros(imagen_rgb)
-        if not ubicaciones:
-            raise ValueError("No se encontró ningún rostro en la imagen.")
-        if len(ubicaciones) > 1:
-            raise ValueError("Hay más de un rostro: usá una foto con una sola persona.")
-
-        ruta = os.path.join(self.ajustes.CARPETA_EMPLEADOS, f'{nombre}.jpg')
-        self.cargador.guardar_imagen(ruta, imagen_bgr)
-        self.reconocedor.agregar_empleado(
-            nombre, self.reconocedor.codificar_rostros(imagen_rgb, ubicaciones)[0]
-        )
-        return nombre
-
-    def asistencias_de_hoy(self):
-        return self.registro.registros_del_dia()
+    def cargar_clientes(self):
+        """Pasa los vectores de biometria_facial al reconocedor. Devuelve cuántos hay."""
+        self.reconocedor.cargar_clientes(self.biometria.listar_vectores())
+        return len(self.reconocedor.ids_conocidos)
 
     # --- Cámara ------------------------------------------------------------
     def abrir_camara(self):
@@ -72,37 +43,35 @@ class AplicacionController:
             self.camara.release()
             self.camara = None
 
-    def procesar_frame(self, frame):
-        """Reconoce los rostros del frame. Devuelve [(ubicacion, nombre o None)]."""
+    def detectar(self, frame):
+        """Localiza y codifica los rostros del frame. Devuelve [(ubicacion, codificacion)].
+
+        Se trabaja sobre el frame achicado para que el video no se trabe, y las
+        ubicaciones se devuelven en el tamaño real.
+        """
         escala = self.ajustes.ESCALA_FRAME
         chico = cv2.resize(frame, (0, 0), fx=escala, fy=escala)
         chico_rgb = cv2.cvtColor(chico, cv2.COLOR_BGR2RGB)
 
         ubicaciones = self.reconocedor.localizar_rostros(chico_rgb)
         codificaciones = self.reconocedor.codificar_rostros(chico_rgb, ubicaciones)
+        return [(tuple(int(valor / escala) for valor in ubicacion), codificacion)
+                for ubicacion, codificacion in zip(ubicaciones, codificaciones)]
 
-        rostros = []
-        for ubicacion, codificacion in zip(ubicaciones, codificaciones):
-            nombre, _ = self.reconocedor.identificar(codificacion)
-            # Las coordenadas salen del frame achicado: se vuelven al tamaño real
-            ubicacion_real = tuple(int(valor / escala) for valor in ubicacion)
-            rostros.append((ubicacion_real, nombre))
-        return rostros
-
-    def reconocer_y_registrar(self, frame):
-        """Reconoce el frame y registra la asistencia de los empleados que aparecen.
-
-        Devuelve (rostros, nombres registrados recién ahora).
-        """
-        rostros = self.procesar_frame(frame)
-        nuevos = [nombre for _, nombre in rostros
-                  if nombre and self.registro.registrar_ingreso(nombre)]
-        return rostros, nuevos
-
-    # --- Modo asistencia por consola (ventana de OpenCV) --------------------
+    # --- Terminal por consola (ventana de OpenCV) ----------------------------
     def iniciar(self):
-        self.cargar_empleados()
-        self.abrir_camara()
+        activos = [d for d in self.dispositivos.listar() if d['estado'] == 'ACTIVO']
+        if not activos:
+            print("No hay ningún dispositivo ACTIVO.")
+            return
+        dispositivo = activos[0]
+        self.terminal.seleccionar(dispositivo['id_dispositivo'])
+        print(f"Terminal: {dispositivo['sucursal']} · {dispositivo['nombre']}")
+
+        self.cargar_clientes()
+        if not self.abrir_camara():
+            print("No se pudo abrir la cámara.")
+            return
         try:
             while True:
                 frame = self.leer_frame()
@@ -110,8 +79,12 @@ class AplicacionController:
                     print("Error al acceder a la cámara.")
                     break
 
-                rostros, _ = self.reconocer_y_registrar(frame)
-                self.vista.renderizar_frame(frame, rostros)
+                lectura = self.terminal.procesar(frame)
+                evento = lectura['evento']
+                if evento:
+                    print(f"{evento['fecha_hora']}  {evento['resultado']}  "
+                          f"{evento['nombre'] or '-'}  ({evento['similitud']:.0%})")
+                self.vista.renderizar_frame(frame, lectura['rostros'])
                 if self.vista.escuchar_teclado() == 'q':
                     break
         finally:
@@ -123,7 +96,7 @@ class AplicacionController:
         """Compara el primer rostro de cada imagen.
 
         Devuelve un dict con las dos imágenes (BGR, con el rostro marcado), si son
-        la misma persona y la distancia. Lanza ValueError si falta algún rostro.
+        la misma persona, la distancia y la similitud. Lanza ValueError si falta algún rostro.
         """
         control = self.cargador.leer_archivo(ruta_control)
         prueba = self.cargador.leer_archivo(ruta_prueba)
@@ -139,17 +112,19 @@ class AplicacionController:
 
         codificacion_control = self.reconocedor.codificar_rostros(control_rgb, ubicaciones_control)[0]
         codificacion_prueba = self.reconocedor.codificar_rostros(prueba_rgb, ubicaciones_prueba)[0]
-        misma_persona, distancia = self.reconocedor.comparar(codificacion_control, codificacion_prueba)
+        misma_persona, distancia, similitud = self.reconocedor.comparar(
+            codificacion_control, codificacion_prueba)
 
         # Se dibuja sobre las copias BGR, que es el orden de colores de la vista
         self.vista.dibujar_rostro(control, ubicaciones_control[0], 'Control')
-        self.vista.dibujar_rostro(prueba, ubicaciones_prueba[0], 'Prueba', misma_persona)
+        self.vista.dibujar_rostro(prueba, ubicaciones_prueba[0], f'Prueba {similitud:.0%}', misma_persona)
         return {
             'control': control,
             'prueba': prueba,
             'misma_persona': misma_persona,
             'distancia': distancia,
-            'tolerancia': self.reconocedor.tolerancia,
+            'similitud': similitud,
+            'umbral': self.reconocedor.umbral_similitud,
         }
 
     def comparar_imagenes(self, ruta_control, ruta_prueba):
@@ -161,7 +136,7 @@ class AplicacionController:
             return
 
         texto = 'Misma persona' if resultado['misma_persona'] else 'Distinta persona'
-        print(f"{texto} (distancia: {resultado['distancia']:.2f})")
+        print(f"{texto} (similitud: {resultado['similitud']:.0%}, distancia: {resultado['distancia']:.2f})")
 
         self.vista.mostrar_imagen('Imagen de control', resultado['control'])
         self.vista.mostrar_imagen('Imagen de prueba', resultado['prueba'])

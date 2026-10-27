@@ -6,7 +6,7 @@ ROJO = (69, 69, 214)
 BLANCO = (255, 255, 255)
 
 class InterfazVideoView:
-    def __init__(self, nombre_ventana='Reconocimiento Facial - Asistencia'):
+    def __init__(self, nombre_ventana='Reconocimiento Facial - Terminal'):
         self.nombre_ventana = nombre_ventana
 
     def dibujar_rostro(self, imagen, ubicacion, etiqueta, conocido=True):
@@ -24,9 +24,9 @@ class InterfazVideoView:
                     cv2.FONT_HERSHEY_SIMPLEX, escala, BLANCO, 1, cv2.LINE_AA)
 
     def dibujar_rostros(self, frame, rostros):
-        """rostros: lista de (ubicacion, nombre o None)."""
-        for ubicacion, nombre in rostros:
-            self.dibujar_rostro(frame, ubicacion, nombre or 'Desconocido', nombre is not None)
+        """rostros: lista de (ubicacion, etiqueta, conocido)."""
+        for ubicacion, etiqueta, conocido in rostros:
+            self.dibujar_rostro(frame, ubicacion, etiqueta, conocido)
 
     def renderizar_frame(self, frame, rostros):
         self.dibujar_rostros(frame, rostros)
