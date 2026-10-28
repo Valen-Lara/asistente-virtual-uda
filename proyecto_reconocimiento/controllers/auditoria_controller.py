@@ -47,8 +47,8 @@ class AuditoriaController:
         with open(ruta, 'w', newline='', encoding='utf-8-sig') as archivo:
             escritor = csv.writer(archivo, delimiter=';')
             escritor.writerow(['Fecha y hora', 'Sucursal', 'Dispositivo', 'DNI', 'Cliente',
-                               'Resultado', 'Nivel de similitud'])
+                               'Rango', 'Resultado', 'Nivel de similitud'])
             for f in filas:
                 cliente = f"{f['nombre']} {f['apellido']}" if f['dni'] else ''
                 escritor.writerow([f['fecha_hora'], f['sucursal'], f['dispositivo'], f['dni'] or '',
-                                   cliente, f['resultado'], f"{f['nivel_similitud']:.2f}"])
+                                   cliente, f['rango'] or '', f['resultado'], f"{f['nivel_similitud']:.2f}"])

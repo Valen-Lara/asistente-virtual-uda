@@ -5,8 +5,9 @@ from models.registro_reconocimiento import DispositivoNoActivoError
 class TerminalController:
     """Caso de uso 1 / HU2: el cliente se autentica frente a la cámara de una terminal."""
 
-    def __init__(self, app, dispositivos, registro, asistencia, ajustes):
+    def __init__(self, app, dispositivos, clientes, registro, asistencia, ajustes):
         self.app = app
+        self.clientes = clientes
         self.dispositivos = dispositivos
         self.registro = registro
         self.asistencia = asistencia
@@ -90,8 +91,12 @@ class TerminalController:
             lectura['rostros'] = []
             return lectura
 
+        rango = None
         if resultado == 'EXITOSO':
-            self.asistencia.registrar_ingreso(nombre)
-        lectura['evento'] = {'resultado': resultado, 'nombre': nombre,
+            # Se lee de la base en el momento: si le cambiaron el rango, ya vale
+            cliente = self.clientes.obtener(id_cliente)
+            rango = cliente['rango'] if cliente else None
+            self.asistencia.registrar_ingreso(nombre, rango or '')
+        lectura['evento'] = {'resultado': resultado, 'nombre': nombre, 'rango': rango,
                              'similitud': similitud, 'fecha_hora': fecha_hora}
         return lectura

@@ -18,11 +18,18 @@ CREATE TABLE IF NOT EXISTS dispositivos (
     UNIQUE (id_sucursal, nombre)
 );
 
+-- Rango de cada persona enrolada (Cliente, Admin, Seguridad, Técnico o los que se agreguen)
+CREATE TABLE IF NOT EXISTS rangos (
+    id_rango INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre   TEXT NOT NULL UNIQUE COLLATE NOCASE
+);
+
 CREATE TABLE IF NOT EXISTS clientes (
     id_cliente INTEGER PRIMARY KEY AUTOINCREMENT,
     dni        TEXT NOT NULL UNIQUE,
     nombre     TEXT NOT NULL,
-    apellido   TEXT NOT NULL
+    apellido   TEXT NOT NULL,
+    id_rango   INTEGER REFERENCES rangos (id_rango)
 );
 
 -- UNIQUE en id_cliente: cada persona tiene un solo registro facial vigente (HU1)
@@ -63,6 +70,10 @@ DATOS_INICIALES = {
     'Sucursal Sur': [('Terminal 1', 'MANTENIMIENTO')],
 }
 
+# El primero es el que se asigna si no se elige otro
+RANGOS_INICIALES = ('Cliente', 'Admin', 'Seguridad', 'Técnico')
+RANGO_POR_DEFECTO = RANGOS_INICIALES[0]
+
 
 class BaseDatos:
     def __init__(self, ruta):
@@ -72,9 +83,26 @@ class BaseDatos:
         # SQLite no controla las claves foráneas si no se le pide
         self.conexion.execute('PRAGMA foreign_keys = ON')
         self.conexion.executescript(ESQUEMA)
+        self._migrar()
         self._cargar_datos_iniciales()
 
+    def _migrar(self):
+        """Agrega id_rango a las bases creadas antes de que existieran los rangos."""
+        columnas = [fila['name'] for fila in self.conexion.execute('PRAGMA table_info(clientes)')]
+        if 'id_rango' not in columnas:
+            with self.conexion:
+                self.conexion.execute(
+                    'ALTER TABLE clientes ADD COLUMN id_rango INTEGER REFERENCES rangos (id_rango)')
+
     def _cargar_datos_iniciales(self):
+        with self.conexion:
+            if not self.conexion.execute('SELECT COUNT(*) FROM rangos').fetchone()[0]:
+                self.conexion.executemany('INSERT INTO rangos (nombre) VALUES (?)',
+                                          [(rango,) for rango in RANGOS_INICIALES])
+            # Quienes no tienen rango (por ejemplo, de antes de la migración) quedan como clientes
+            self.conexion.execute(
+                'UPDATE clientes SET id_rango = (SELECT id_rango FROM rangos WHERE nombre = ?) '
+                'WHERE id_rango IS NULL', (RANGO_POR_DEFECTO,))
         if self.conexion.execute('SELECT COUNT(*) FROM sucursales').fetchone()[0]:
             return
         with self.conexion:

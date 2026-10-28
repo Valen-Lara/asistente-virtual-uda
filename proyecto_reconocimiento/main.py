@@ -5,6 +5,7 @@ from models.base_datos import BaseDatos
 from models.cargador_imagenes import CargadorImagenesModel
 from models.reconocedor_facial import ReconocedorFacialModel
 from models.clientes import ClientesModel
+from models.rangos import RangosModel
 from models.biometria_facial import BiometriaFacialModel
 from models.dispositivos import DispositivosModel
 from models.registro_reconocimiento import RegistroReconocimientoModel
@@ -28,8 +29,8 @@ def armar_aplicacion():
 
     # Controladores, con los modelos y la vista inyectados
     app = AplicacionController(CargadorImagenesModel(), reconocedor, biometria, InterfazVideoView(), ajustes)
-    app.terminal = TerminalController(app, dispositivos, registro, asistencia, ajustes)
-    app.enrolamiento = EnrolamientoController(clientes, biometria, reconocedor)
+    app.terminal = TerminalController(app, dispositivos, clientes, registro, asistencia, ajustes)
+    app.enrolamiento = EnrolamientoController(clientes, RangosModel(bd), biometria, reconocedor)
     app.auditoria = AuditoriaController(registro, dispositivos, ajustes)
     app.dispositivos = DispositivosController(dispositivos)
     return app

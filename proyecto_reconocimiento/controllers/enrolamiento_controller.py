@@ -10,11 +10,22 @@ def normalizar_dni(dni):
     return dni
 
 
+def normalizar_rango(rango):
+    """Saca espacios de más y pone la primera letra en mayúscula ("  técnico " -> "Técnico")."""
+    rango = ' '.join(rango.split())
+    if not rango:
+        raise ValueError("Elegí o escribí un rango.")
+    if len(rango) > 30:
+        raise ValueError("El rango puede tener hasta 30 letras.")
+    return rango[0].upper() + rango[1:]
+
+
 class EnrolamientoController:
     """Caso de uso 2 / HU1: el operador registra la biometría facial de un cliente."""
 
-    def __init__(self, clientes, biometria, reconocedor):
+    def __init__(self, clientes, rangos, biometria, reconocedor):
         self.clientes = clientes
+        self.rangos = rangos
         self.biometria = biometria
         self.reconocedor = reconocedor
 
@@ -25,15 +36,27 @@ class EnrolamientoController:
             cliente['fecha_actualizacion'] = self.biometria.obtener_fecha(cliente['id_cliente'])
         return cliente
 
-    def crear_cliente(self, dni, nombre, apellido):
+    def listar_rangos(self):
+        return self.rangos.listar()
+
+    def crear_cliente(self, dni, nombre, apellido, rango):
         dni = normalizar_dni(dni)
         nombre, apellido = nombre.strip().title(), apellido.strip().title()
         if not nombre or not apellido:
             raise ValueError("Completá el nombre y el apellido.")
+        id_rango = self.rangos.obtener_o_crear(normalizar_rango(rango))
         try:
-            self.clientes.crear(dni, nombre, apellido)
+            self.clientes.crear(dni, nombre, apellido, id_rango)
         except sqlite3.IntegrityError:
             raise ValueError(f"Ya existe un cliente con DNI {dni}.")
+        return self.buscar(dni)
+
+    def cambiar_rango(self, dni, rango):
+        """Asigna un rango al cliente. Si el rango no existe, se crea."""
+        cliente = self.clientes.buscar_por_dni(normalizar_dni(dni))
+        if not cliente:
+            raise ValueError("No existe un cliente con ese DNI.")
+        self.clientes.cambiar_rango(cliente['id_cliente'], self.rangos.obtener_o_crear(normalizar_rango(rango)))
         return self.buscar(dni)
 
     def listar_clientes(self):

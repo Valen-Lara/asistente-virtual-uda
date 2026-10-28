@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 
 class RegistroAsistenciaModel:
-    ENCABEZADO = ['Nombre', 'Fecha', 'Hora']
+    ENCABEZADO = ['Nombre', 'Rango', 'Fecha', 'Hora']
 
     def __init__(self, ruta_csv):
         self.ruta_csv = ruta_csv
@@ -13,9 +13,22 @@ class RegistroAsistenciaModel:
         if not os.path.exists(self.ruta_csv):
             with open(self.ruta_csv, 'w', newline='', encoding='utf-8') as archivo:
                 csv.writer(archivo).writerow(self.ENCABEZADO)
+        else:
+            self._agregar_columna_rango()
+
+    def _agregar_columna_rango(self):
+        """Los CSV de antes de los rangos tienen Nombre, Fecha, Hora: se les agrega la columna vacía."""
+        with open(self.ruta_csv, newline='', encoding='utf-8') as archivo:
+            filas = list(csv.reader(archivo))
+        if not filas or 'Rango' in filas[0]:
+            return
+        with open(self.ruta_csv, 'w', newline='', encoding='utf-8') as archivo:
+            escritor = csv.writer(archivo)
+            escritor.writerow(self.ENCABEZADO)
+            escritor.writerows([fila[0], ''] + fila[1:] for fila in filas[1:] if fila)
 
     def registros_del_dia(self, fecha=None):
-        """Devuelve [{'Nombre', 'Fecha', 'Hora'}] de la fecha pedida (hoy por defecto)."""
+        """Devuelve [{'Nombre', 'Rango', 'Fecha', 'Hora'}] de la fecha pedida (hoy por defecto)."""
         fecha = fecha or datetime.now().strftime('%Y-%m-%d')
         with open(self.ruta_csv, newline='', encoding='utf-8') as archivo:
             return [fila for fila in csv.DictReader(archivo) if fila['Fecha'] == fecha]
@@ -28,8 +41,8 @@ class RegistroAsistenciaModel:
             return True
         return False
 
-    def registrar_ingreso(self, nombre):
-        """Guarda nombre, fecha y hora de ingreso. Solo una vez por día por empleado.
+    def registrar_ingreso(self, nombre, rango=''):
+        """Guarda nombre, rango, fecha y hora de ingreso. Solo una vez por día por persona.
 
         Devuelve True si se registró, False si ya tenía el ingreso de hoy.
         """
@@ -39,7 +52,7 @@ class RegistroAsistenciaModel:
             return False
 
         with open(self.ruta_csv, 'a', newline='', encoding='utf-8') as archivo:
-            csv.writer(archivo).writerow([nombre, fecha, ahora.strftime('%H:%M:%S')])
+            csv.writer(archivo).writerow([nombre, rango, fecha, ahora.strftime('%H:%M:%S')])
         self._registrados.add((nombre, fecha))
-        print(f"Asistencia registrada: {nombre} a las {ahora.strftime('%H:%M:%S')}")
+        print(f"Asistencia registrada: {nombre} ({rango}) a las {ahora.strftime('%H:%M:%S')}")
         return True

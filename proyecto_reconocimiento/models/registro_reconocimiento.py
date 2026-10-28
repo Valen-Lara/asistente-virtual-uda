@@ -9,11 +9,12 @@ CONSULTA_REPORTE = """
     SELECT r.id_registro, r.fecha_hora, r.resultado, r.nivel_similitud,
            d.id_dispositivo, d.nombre AS dispositivo,
            s.id_sucursal, s.nombre AS sucursal,
-           c.dni, c.nombre, c.apellido
+           c.dni, c.nombre, c.apellido, ra.nombre AS rango
     FROM registro_reconocimiento r
     JOIN dispositivos d ON d.id_dispositivo = r.id_dispositivo
     JOIN sucursales s ON s.id_sucursal = d.id_sucursal
     LEFT JOIN clientes c ON c.id_cliente = r.id_cliente
+    LEFT JOIN rangos ra ON ra.id_rango = c.id_rango
 """
 
 class RegistroReconocimientoModel:

@@ -10,6 +10,7 @@ Los clientes del banco se autentican mirando la cámara de una terminal de la su
 | **HU2 · CU1** Autenticación en terminal | Dispositivo `ACTIVO`, comparar contra `biometria_facial`, más de 85% = `EXITOSO`, si no `RECHAZADO` con `id_cliente = NULL`, cada transacción en `registro_reconocimiento`, mostrar nombre y apellido | Pantalla **Terminal** · `controllers/terminal_controller.py` |
 | **CU1 · A2** Dispositivo inactivo | Interrumpir la lectura, mostrar "fuera de servicio" y no generar la transacción | `terminal_controller.py` y un trigger en la base |
 | **HU3** Auditoría | Cruzar `registro_reconocimiento`, `dispositivos`, `sucursales` y `clientes`; filtrar por sucursal, dispositivo y rango horario, y los rechazos con similitud alta | Pantalla **Auditoría** · `controllers/auditoria_controller.py`, `models/registro_reconocimiento.py` |
+| **Rangos** | Cada persona enrolada tiene un rango: Cliente, Admin, Seguridad, Técnico u otro que se escriba. Se muestra al validarla y queda en `asistencia.csv` | Pantalla **Enrolamiento** · `models/rangos.py` |
 | **HU4** Gestión de dispositivos | Listar cada dispositivo con su sucursal; pasarlo a `INACTIVO` o `MANTENIMIENTO` bloquea nuevas transacciones | Pantalla **Dispositivos** · `controllers/dispositivos_controller.py`, `models/dispositivos.py` |
 
 ## Consigna técnica
@@ -20,7 +21,7 @@ Los clientes del banco se autentican mirando la cámara de una terminal de la su
 | Localizar rostros y codificar sus características | `models/reconocedor_facial.py` (`localizar_rostros`, `codificar_rostros`) |
 | Comparar dos rostros y buscar la mejor coincidencia por distancia | `models/reconocedor_facial.py` (`comparar`, `identificar`) |
 | Captura desde la cámara web en tiempo real | `controllers/app_controller.py` (`abrir_camara`, `leer_frame`, `detectar`) |
-| Registro de nombre y hora de ingreso en CSV | `models/registro_asistencia.py` → `asistencia.csv` (cada cliente validado, una vez por día) |
+| Registro de nombre y hora de ingreso en CSV | `models/registro_asistencia.py` → `asistencia.csv` con nombre, rango, fecha y hora (cada persona validada, una vez por día) |
 | Rectángulos, nombres e imágenes de control y prueba | `views/interfaz_video.py`, botón **Comparar dos imágenes** |
 
 ## Base de datos
@@ -30,7 +31,8 @@ SQLite (`banco.db`), que viene con Python: no hace falta instalar un servidor. S
 ```
 sucursales (id_sucursal, nombre, direccion)
 dispositivos (id_dispositivo, id_sucursal, nombre, estado)          estado: ACTIVO | INACTIVO | MANTENIMIENTO
-clientes (id_cliente, dni UNIQUE, nombre, apellido)
+rangos (id_rango, nombre UNIQUE)                                    Cliente, Admin, Seguridad, Técnico y los que se agreguen
+clientes (id_cliente, dni UNIQUE, nombre, apellido, id_rango)
 biometria_facial (id_biometria, id_cliente UNIQUE, vector_facial, fecha_actualizacion)
 registro_reconocimiento (id_registro, id_dispositivo, id_cliente NULL, fecha_hora, resultado, nivel_similitud)
 ```
@@ -60,6 +62,7 @@ proyecto_reconocimiento/
 ├── models/
 │   ├── base_datos.py                    # tablas, trigger y datos de ejemplo
 │   ├── clientes.py                      # tabla clientes
+│   ├── rangos.py                        # rangos de las personas enroladas
 │   ├── biometria_facial.py              # vectores faciales
 │   ├── dispositivos.py                  # sucursales y dispositivos
 │   ├── registro_reconocimiento.py       # transacciones y reporte de auditoría
@@ -81,14 +84,18 @@ proyecto_reconocimiento/
 
 Hace falta **Python 3.12** ([python.org](https://www.python.org/downloads/release/python-31210/), marcando "Add Python to PATH" al instalar). Con versiones más nuevas puede no haber `dlib` ya compilado.
 
+Después, doble clic en **`iniciar.bat`**. La primera vez crea el entorno virtual (`.venv`) e instala todo solo, lo que tarda unos minutos; las siguientes abre la aplicación directamente. Si falta algo, lo reinstala; si hay un error, lo muestra en la consola.
+
+A mano, sin `activate` (que en PowerShell suele estar bloqueado):
+
 ```bash
 git clone https://github.com/Valen-Lara/asistente-virtual-uda.git
 cd asistente-virtual-uda/proyecto_reconocimiento
 
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-pip install --no-deps face_recognition
+py -3.12 -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+.venv\Scripts\python.exe -m pip install --no-deps face_recognition
+.venv\Scripts\python.exe main.py
 ```
 
 `face_recognition` depende de `dlib`, que normalmente se compila al instalarse (y en Windows pide CMake y Visual Studio Build Tools). Para evitarlo, `requirements.txt` trae `dlib-bin`, que ya viene compilado, y `face_recognition` se instala con `--no-deps` para que pip no intente compilar `dlib` igual. Probado con Python 3.12.
@@ -101,8 +108,8 @@ Doble clic en **`iniciar.bat`**, o desde la terminal:
 python main.py
 ```
 
-1. **Enrolamiento**: buscá al cliente por DNI. Si no existe, se da de alta ahí mismo con nombre y apellido. Encendé la cámara de enrolamiento y tocá **Capturar con la cámara** (o usá una foto del disco). La imagen tiene que tener un solo rostro.
-2. **Terminal**: elegí la terminal y encendé la cámara. Cuando un cliente se ubica de frente, el sistema junta 5 capturas, se queda con la mejor y registra la transacción: cartel verde con su nombre si es `EXITOSO`, rojo si es `RECHAZADO`. Para la siguiente lectura, la persona tiene que salir de cuadro.
+1. **Enrolamiento**: buscá al cliente por DNI. Si no existe, se da de alta ahí mismo con nombre, apellido y rango. El rango se elige de la lista o se escribe uno nuevo, que queda disponible para los demás; a un cliente existente se le cambia con **Guardar rango**. Encendé la cámara de enrolamiento y tocá **Capturar con la cámara** (o usá una foto del disco). La imagen tiene que tener un solo rostro.
+2. **Terminal**: elegí la terminal y encendé la cámara. Cuando un cliente se ubica de frente, el sistema junta 5 capturas, se queda con la mejor y registra la transacción: cartel verde con su nombre y rango si es `EXITOSO` (y una fila en `asistencia.csv`, por ejemplo `Juan Pérez,Técnico,2026-10-29,09:12:40`), rojo si es `RECHAZADO`. Para la siguiente lectura, la persona tiene que salir de cuadro.
 3. **Dispositivos**: cambiá el estado de una terminal. Si está en `MANTENIMIENTO` o `INACTIVO`, la terminal muestra "fuera de servicio" y no registra nada.
 4. **Auditoría**: filtrá por sucursal, dispositivo, rango horario y resultado. El filtro de rechazos con similitud alta (70% o más) muestra a quienes se parecían mucho a un cliente sin llegar al umbral: posibles suplantaciones o clientes que la cámara no validó. Se exporta a CSV para Excel.
 

@@ -6,7 +6,7 @@ import cv2
 import customtkinter as ctk
 from PIL import Image
 
-from models.base_datos import ESTADOS_DISPOSITIVO
+from models.base_datos import ESTADOS_DISPOSITIVO, RANGO_POR_DEFECTO
 
 # Paleta: cada color va como (modo claro, modo oscuro)
 AZUL = ("#2563EB", "#3B82F6")
@@ -548,8 +548,9 @@ class PaginaTerminal(Pagina):
         hora = evento['fecha_hora'][11:16]
         if evento['resultado'] == 'EXITOSO':
             self._cartel("✔", f"Bienvenido/a, {evento['nombre']}",
-                         f"Identidad validada · similitud {evento['similitud']:.0%}", VERDE)
-            self.ventana.estado(f"✅  {hora}  EXITOSO: {evento['nombre']} ({evento['similitud']:.0%})")
+                         f"{evento['rango']} · identidad validada · similitud {evento['similitud']:.0%}", VERDE)
+            self.ventana.estado(f"✅  {hora}  EXITOSO: {evento['nombre']} ({evento['rango']}, "
+                                f"{evento['similitud']:.0%})")
         else:
             self._cartel("✘", "No pudimos validar su identidad",
                          "Ingrese con su DNI o solicite asistencia al personal.\n"
@@ -572,7 +573,7 @@ class PaginaTerminal(Pagina):
             ctk.CTkLabel(fila, text="✔" if exitoso else "✘", width=32, height=32, corner_radius=16,
                          fg_color=VERDE if exitoso else ROJO, text_color="#FFFFFF",
                          font=fuente(13, True)).pack(side="left", padx=10, pady=7)
-            nombre = f"{f['nombre']} {f['apellido']}" if exitoso else "Rechazado"
+            nombre = f"{f['nombre']} {f['apellido']} · {f['rango']}" if exitoso else "Rechazado"
             ctk.CTkLabel(fila, text=nombre, font=fuente(13), anchor="w").pack(side="left", fill="x", expand=True)
             ctk.CTkLabel(fila, text=f"{f['nivel_similitud']:.0%}  ·  {f['fecha_hora'][11:16]}",
                          font=fuente(12), text_color=TEXTO_SUAVE).pack(side="right", padx=12)
@@ -624,8 +625,18 @@ class PaginaEnrolamiento(Pagina):
         self.entrada_nombre.grid(row=0, column=0, padx=(0, 4), sticky="ew")
         self.entrada_apellido = ctk.CTkEntry(self.alta, placeholder_text="Apellido", height=36, corner_radius=10)
         self.entrada_apellido.grid(row=0, column=1, padx=(4, 0), sticky="ew")
+        self.combo_rango_alta = self._combo_rango(self.alta)
+        self.combo_rango_alta.grid(row=1, column=0, columnspan=2, pady=(8, 0), sticky="ew")
         ventana._boton_secundario(self.alta, "＋  Dar de alta al cliente", self.dar_de_alta, height=36,
-                                  anchor="center").grid(row=1, column=0, columnspan=2, pady=(8, 0), sticky="ew")
+                                  anchor="center").grid(row=2, column=0, columnspan=2, pady=(8, 0), sticky="ew")
+
+        # Rango de un cliente que ya existe: se elige de la lista o se escribe uno nuevo
+        self.edicion_rango = ctk.CTkFrame(ficha, fg_color="transparent")
+        self.edicion_rango.grid_columnconfigure(0, weight=1)
+        self.combo_rango = self._combo_rango(self.edicion_rango)
+        self.combo_rango.grid(row=0, column=0, padx=(0, 8), sticky="ew")
+        ventana._boton_secundario(self.edicion_rango, "Guardar rango", self.cambiar_rango, height=36, width=130,
+                                  anchor="center", border_spacing=4).grid(row=0, column=1)
 
         # Paso 2: capturar el rostro
         self.titulo_tarjeta(ficha, "2 · Capturar el rostro").grid(row=4, column=0, columnspan=2,
@@ -639,7 +650,8 @@ class PaginaEnrolamiento(Pagina):
         clientes.grid(row=1, column=0, sticky="nsew")
         self.titulo_tarjeta(clientes, "Clientes").pack(anchor="w", padx=18, pady=(16, 8))
         marco, self.tabla = ventana.crear_tabla(clientes, [
-            ('dni', "DNI", 90, "w"), ('cliente', "Cliente", 160, "w"), ('biometria', "Biometría", 120, "w")])
+            ('dni', "DNI", 80, "w"), ('cliente', "Cliente", 150, "w"), ('rango', "Rango", 80, "w"),
+            ('biometria', "Biometría", 110, "w")])
         marco.pack(fill="both", expand=True, padx=14, pady=(0, 14))
         self.tabla.bind("<<TreeviewSelect>>", self._cliente_elegido)
 
@@ -648,15 +660,27 @@ class PaginaEnrolamiento(Pagina):
         self.panel_video.grid(row=1, column=1, sticky="nsew")
         self._habilitar_captura()
 
+    def _combo_rango(self, padre):
+        combo = ctk.CTkComboBox(padre, values=[], height=36, corner_radius=10, font=fuente(13))
+        combo.set(RANGO_POR_DEFECTO)
+        return combo
+
     def al_mostrar(self):
+        self.refrescar_rangos()
         self.refrescar_clientes()
+
+    def refrescar_rangos(self):
+        # Si se escribe un rango que no está en la lista, se crea al guardar
+        rangos = self.app.enrolamiento.listar_rangos()
+        self.combo_rango_alta.configure(values=rangos)
+        self.combo_rango.configure(values=rangos)
 
     def refrescar_clientes(self):
         self.tabla.delete(*self.tabla.get_children())
         for c in self.app.enrolamiento.listar_clientes():
             fecha = c['fecha_actualizacion']
             self.tabla.insert("", "end", iid=c['dni'], tags=() if fecha else ('SIN_BIOMETRIA',),
-                              values=(c['dni'], f"{c['apellido']}, {c['nombre']}",
+                              values=(c['dni'], f"{c['apellido']}, {c['nombre']}", c['rango'] or "—",
                                       fecha[:16] if fecha else "Sin registrar"))
 
     def _cliente_elegido(self, _):
@@ -673,6 +697,7 @@ class PaginaEnrolamiento(Pagina):
 
     def buscar(self):
         self.alta.grid_remove()
+        self.edicion_rango.grid_remove()
         try:
             self.cliente = self.app.enrolamiento.buscar(self.entrada_dni.get())
         except ValueError as e:
@@ -693,23 +718,41 @@ class PaginaEnrolamiento(Pagina):
             biometria = f"Biometría vigente desde {c['fecha_actualizacion'][:16]}. Capturar de nuevo la reemplaza."
         else:
             biometria = "Sin biometría registrada."
-        self.datos.configure(text=f"✔  {c['nombre']} {c['apellido']}  ·  DNI {c['dni']}\n{biometria}",
-                             text_color=TEXTO)
+        self.datos.configure(text=f"✔  {c['nombre']} {c['apellido']}  ·  DNI {c['dni']}  ·  {c['rango']}\n"
+                                  f"{biometria}", text_color=TEXTO)
+        self.combo_rango.set(c['rango'] or RANGO_POR_DEFECTO)
+        self.edicion_rango.grid(row=3, column=0, columnspan=2, padx=18, pady=(4, 0), sticky="ew")
 
     def dar_de_alta(self):
         try:
             self.cliente = self.app.enrolamiento.crear_cliente(
-                self.entrada_dni.get(), self.entrada_nombre.get(), self.entrada_apellido.get())
+                self.entrada_dni.get(), self.entrada_nombre.get(), self.entrada_apellido.get(),
+                self.combo_rango_alta.get())
         except ValueError as e:
             messagebox.showwarning("Alta de cliente", str(e))
             return
         self.alta.grid_remove()
         self.entrada_nombre.delete(0, "end")
         self.entrada_apellido.delete(0, "end")
+        self.combo_rango_alta.set(RANGO_POR_DEFECTO)
         self._mostrar_cliente()
         self._habilitar_captura()
+        self.refrescar_rangos()
         self.refrescar_clientes()
-        self.ventana.estado(f"✅  Cliente {self.cliente['nombre']} {self.cliente['apellido']} dado de alta.")
+        self.ventana.estado(f"✅  {self.cliente['nombre']} {self.cliente['apellido']} dado de alta "
+                            f"como {self.cliente['rango']}.")
+
+    def cambiar_rango(self):
+        try:
+            self.cliente = self.app.enrolamiento.cambiar_rango(self.cliente['dni'], self.combo_rango.get())
+        except ValueError as e:
+            messagebox.showwarning("Rango", str(e))
+            return
+        self._mostrar_cliente()
+        self.refrescar_rangos()
+        self.refrescar_clientes()
+        self.ventana.estado(f"✅  {self.cliente['nombre']} {self.cliente['apellido']} ahora es "
+                            f"{self.cliente['rango']}.")
 
     def _enrolar(self, imagen_bgr):
         try:
@@ -822,9 +865,9 @@ class PaginaAuditoria(Pagina):
         tabla = self.tarjeta()
         tabla.grid(row=3, column=0, sticky="nsew")
         marco, self.tabla = ventana.crear_tabla(tabla, [
-            ('fecha', "Fecha y hora", 150, "w"), ('sucursal', "Sucursal", 140, "w"),
-            ('dispositivo', "Dispositivo", 150, "w"), ('dni', "DNI", 90, "w"),
-            ('cliente', "Cliente", 170, "w"), ('resultado', "Resultado", 110, "w"),
+            ('fecha', "Fecha y hora", 140, "w"), ('sucursal', "Sucursal", 125, "w"),
+            ('dispositivo', "Dispositivo", 140, "w"), ('dni', "DNI", 85, "w"),
+            ('cliente', "Cliente", 155, "w"), ('rango', "Rango", 90, "w"), ('resultado', "Resultado", 110, "w"),
             ('similitud', "Similitud", 90, "e")])
         marco.pack(fill="both", expand=True, padx=14, pady=14)
 
@@ -885,7 +928,7 @@ class PaginaAuditoria(Pagina):
             cliente = f"{f['apellido']}, {f['nombre']}" if f['dni'] else "—"
             self.tabla.insert("", "end", tags=(etiqueta,), values=(
                 f['fecha_hora'], f['sucursal'], f['dispositivo'], f['dni'] or "—", cliente,
-                f['resultado'], f"{f['nivel_similitud']:.0%}"))
+                f['rango'] or "—", f['resultado'], f"{f['nivel_similitud']:.0%}"))
 
         self.total.configure(text=str(len(self.filas)))
         self.total_exitosos.configure(text=str(contadores['EXITOSO']))
