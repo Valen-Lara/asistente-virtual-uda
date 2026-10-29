@@ -47,6 +47,10 @@ COMANDOS = [
 ]
 ```
 
+## Reconocimiento facial
+
+En [`proyecto_reconocimiento/`](proyecto_reconocimiento/) hay un proyecto aparte: autenticación de clientes bancarios por reconocimiento facial, con enrolamiento, terminales por sucursal y auditoría de lecturas. Tiene su propio README con la instalación y el uso.
+
 ## Instalación
 
 ```bash

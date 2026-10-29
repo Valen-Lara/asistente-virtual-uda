@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+
+# Datos personales: base con los vectores faciales de los clientes y registros
+banco.db
+asistencia.csv
+auditoria_*.csv
+# Fotos de la versión anterior (empleados)
+empleados/
