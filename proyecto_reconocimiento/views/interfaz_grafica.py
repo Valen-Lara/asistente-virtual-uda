@@ -1,4 +1,6 @@
 import os
+import subprocess
+import sys
 from datetime import date
 from tkinter import filedialog, messagebox, ttk
 
@@ -41,6 +43,16 @@ def a_imagen_ctk(imagen_bgr, ancho_max, alto_max):
     tamano = (max(1, int(ancho * escala)), max(1, int(alto * escala)))
     pil = Image.fromarray(cv2.cvtColor(imagen_bgr, cv2.COLOR_BGR2RGB))
     return ctk.CTkImage(light_image=pil, dark_image=pil, size=tamano)
+
+
+def abrir_con_programa(ruta):
+    """Abre un archivo con el programa predeterminado del sistema."""
+    if sys.platform == 'win32':
+        os.startfile(ruta)
+    elif sys.platform == 'darwin':
+        subprocess.Popen(['open', ruta])
+    else:
+        subprocess.Popen(['xdg-open', ruta])
 
 
 def fuente(tamano=13, negrita=False):
@@ -284,7 +296,7 @@ class InterfazGraficaView(ctk.CTk):
 
     def abrir_csv(self):
         if os.path.exists(self.app.ajustes.ARCHIVO_ASISTENCIA):
-            os.startfile(self.app.ajustes.ARCHIVO_ASISTENCIA)
+            abrir_con_programa(self.app.ajustes.ARCHIVO_ASISTENCIA)
 
     def estado(self, texto):
         self.barra_estado.configure(text=texto)

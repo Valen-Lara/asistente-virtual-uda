@@ -100,9 +100,15 @@ py -3.12 -m venv .venv
 
 `face_recognition` depende de `dlib`, que normalmente se compila al instalarse (y en Windows pide CMake y Visual Studio Build Tools). Para evitarlo, `requirements.txt` trae `dlib-bin`, que ya viene compilado, y `face_recognition` se instala con `--no-deps` para que pip no intente compilar `dlib` igual. Probado con Python 3.12.
 
+### En Linux (Ubuntu)
+
+Hace falta Tkinter del sistema (`sudo apt install python3-tk python3-venv`). Con eso, `./iniciar.sh` hace lo mismo que `iniciar.bat`: la primera vez crea `.venv` e instala todo, y después abre la aplicación. Probado en Ubuntu 22.04 con Python 3.10, que también tiene `dlib-bin` ya compilado.
+
+En Linux, Tk 8.6 se cierra con *Segmentation fault* al dibujar emojis a color, así que `main.py` usa `config/fuentes_linux.conf`, que los deja afuera: los íconos se ven en blanco y negro o no se ven, pero la aplicación anda igual.
+
 ## Uso
 
-Doble clic en **`iniciar.bat`**, o desde la terminal:
+Doble clic en **`iniciar.bat`** (en Linux, `./iniciar.sh`), o desde la terminal:
 
 ```bash
 python main.py

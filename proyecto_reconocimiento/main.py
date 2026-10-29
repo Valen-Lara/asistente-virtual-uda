@@ -1,4 +1,12 @@
 import argparse
+import os
+import sys
+
+# En Linux, Tk 8.6 se cuelga al dibujar emojis a color: se usa una configuración
+# de fuentes que los deja afuera. Tiene que quedar antes de abrir cualquier ventana.
+if sys.platform.startswith('linux'):
+    os.environ.setdefault('FONTCONFIG_FILE', os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), 'config', 'fuentes_linux.conf'))
 
 from config import ajustes
 from models.base_datos import BaseDatos
